@@ -1,0 +1,6 @@
+E:\training\Evlation-Revit\ColumnHat\bin\Debug\ColumnHat.dll
+E:\training\Evlation-Revit\ColumnHat\bin\Debug\ColumnHat.pdb
+E:\training\Evlation-Revit\ColumnHat\obj\Debug\ColumnHat.csproj.CoreCompileInputs.cache
+E:\training\Evlation-Revit\ColumnHat\obj\Debug\ColumnHat.dll
+E:\training\Evlation-Revit\ColumnHat\obj\Debug\ColumnHat.pdb
+E:\training\Evlation-Revit\ColumnHat\obj\Debug\ColumnHat.csprojResolveAssemblyReference.cache
