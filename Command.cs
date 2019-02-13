@@ -36,7 +36,7 @@ namespace ColumnHat
         {
             get => p;
         }
-  
+        
 
         Result IExternalCommand.Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -47,6 +47,7 @@ namespace ColumnHat
             if (null != refer)
             {
                 Element el = uidoc.Document.GetElement(refer);
+
                 Solid s = GetFloorSolid(el);
                 Face f = GetAndFindTopFace(s);
                 List<ElementId> ids = new List<ElementId>();
@@ -122,6 +123,8 @@ namespace ColumnHat
             }
             return solid;
         }
+
+        private Face face;
         /// <summary>
         /// 获取Solid顶部面
         /// </summary>
@@ -130,21 +133,28 @@ namespace ColumnHat
         private Face GetAndFindTopFace(Solid solid)
         {
             PlanarFace pf = null;
+            List<double> arealist = new List<double>();
+            foreach (Face fa in solid.Faces)
+            {
+                PlanarFace pfs = fa as PlanarFace;
+                double area = pfs.Area;
+                arealist.Add(area);
+            }
             foreach (Face fa in solid.Faces)
             {
                 pf = fa as PlanarFace;
-
+                double max = arealist.Max();
                 if (pf!=null)
-                {
-                    if (Math.Abs(pf.FaceNormal.X) < 0.01 && Math.Abs(pf.FaceNormal.Y) < 0.01 && pf.FaceNormal.Z > 0) //Z=-1为最低Z=1为最高    Z轴
+                {              //不知名错误原因，未排查
+                    if (/*Math.Abs(*//*pf.FaceNormal.X) < 0.01 && Math.Abs(pf.FaceNormal.Y) < 0.01 && */pf.FaceNormal.Z > 0&&pf.Area == max) //Z=-1为最低Z=1为最高    Z轴
                     {
-                        break;
+                        face = pf;
                     }
                 }
 
             }
 
-            return pf;
+            return face;
 
         }
         /// <summary>
@@ -277,27 +287,30 @@ namespace ColumnHat
              
             return H;
         }
-
-       
-
+        private XYZ maxxyz;
         /// <summary>
         /// 获取面上最小点
         /// </summary>
         /// <param name="face"></param>
         /// <returns></returns>
+        
         private XYZ GetMinimumPointOnFace(Face face)
         {
             List<XYZ> xYZs =GetFaceXyz(face);
-             
-            var maxxyz = xYZs[0];
+            Dictionary<XYZ, double> dic_Xyz = new Dictionary<XYZ, double>();
             for (int a = 0; a < xYZs.Count; a++)
             {
-                if (maxxyz.X > xYZs[a].X&& maxxyz.Y > xYZs[a].Y&& maxxyz.Z >= xYZs[a].Z)
+                dic_Xyz.Add(xYZs[a], xYZs[a].Z);
+            }
+
+            for (int b = 0; b < xYZs.Count; b++)
+            {
+                maxxyz = dic_Xyz.Keys.ElementAt<XYZ>(b);
+                if (dic_Xyz.Values.ElementAt<double>(b) == dic_Xyz.Values.Min())
                 {
-                    maxxyz = xYZs[a];
+                    break;
                 }
             }
-            
                    
             return maxxyz;
         }
@@ -339,24 +352,29 @@ namespace ColumnHat
                     }
                 }
 
-                List<double> ml = new List<double>();
-                for (int m = 0; m < xYZs1.Count; m++)
+                List<double> mlm = new List<double>();
+                //List<double> ml = new List<double>();
+                for (int m = 0; m < xYZs1.Count; m++)         //对四个点进行相互比较取出最小值，进行三角函数运算
                 {
                     for (int n = 0; n < xYZs2.Count; n++)
                     {
-                        double l = Math.Abs(xYZs1[m].X - xYZs2[n].X);
-                        
-                        if (l-0 != 0)
-                        {
-                            ml.Add(l);
-                        }
+                        //double l = Math.Abs(xYZs1[m].X - xYZs2[n].X);
+                        XYZ pm = GetMinZValue(xYZs2);
+                        double lm = Math.Abs(xYZs1[m].X - pm.X);
+                        mlm.Add(lm);
+                        //if (l-0 != 0)
+                        //{
+                        //    ml.Add(l);
+                        //}
 
                     }
                 }
 
+                double lxm = mlm.Min();
                 //TaskDialog.Show("Revit", ml[0].ToString() + " " + ml[1].ToString());
-                Lx = ml.Min();
-                ml.Clear();
+                Lx = lxm;
+                mlm.Clear();
+                //ml.Clear();
             }
             else
             {
@@ -384,19 +402,25 @@ namespace ColumnHat
                         }
                     }
                 }
-
+                List<double> mlm = new List<double>();
                 List<double> ml = new List<double>();
                 for (int m = 0; m < xYZs1.Count; m++)
                 {
                     for (int n = 0; n < xYZs2.Count; n++)
                     {
-                        double l = Math.Abs(xYZs1[m].Y - xYZs2[n].Y);
-                        ml.Add(l);
+                        //double l = Math.Abs(xYZs1[m].Y - xYZs2[n].Y);
+                        //ml.Add(l);
+                        XYZ pm = GetMinZValue(xYZs2);
+                        double lm = Math.Abs(xYZs1[m].Y - pm.Y);
+                        mlm.Add(lm);
                     }
                 }
 
                 //TaskDialog.Show("Revit", ml.Min().ToString());
-                Lx = ml.Min();
+                //Lx = ml.Min();
+                double lxm = mlm.Min();
+                Lx = lxm;
+                mlm.Clear();
             }
 
             return Lx;
@@ -537,7 +561,39 @@ namespace ColumnHat
 
             }
         }
+        /// <summary>
+        /// 获取列表点中Z最小值
+        /// </summary>
+        /// <param name="xYZs"></param>
+        /// <returns></returns>
+        private XYZ GetMinZValue(List<XYZ> xYZs)
+        {
+            XYZ xyz = null;
+            List<double> zs = new List<double>();
+            Dictionary<XYZ, double> dic_xyz = new Dictionary<XYZ, double>();
+            for (int a = 0; a < xYZs.Count; a++)
+            {
+                zs.Add(xYZs[a].Z);
+            }
 
+            if (zs.Count == xYZs.Count)
+            {
+                for (int b = 0; b < xYZs.Count; b++)
+                {
+                    dic_xyz.Add(xYZs[b], zs[b]);
+                }
+            }
+
+            for (int c = 0; c < xYZs.Count; c++)
+            {
+                xyz = dic_xyz.Keys.ElementAt<XYZ>(c);
+                if (dic_xyz.Values.ElementAt<double>(c) == dic_xyz.Values.Min())
+                {
+                    break;
+                }
+            }
+            return xyz;
+        }
     }
 
 }
